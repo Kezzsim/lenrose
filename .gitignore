@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.pixi/
+
+# App state
+*.db
+*.sqlite3
+
+# Node / Vite
+node_modules/
+src/lenrose/web/dist/
+
+# OS
+.DS_Store

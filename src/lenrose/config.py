@@ -1,0 +1,71 @@
+"""Application configuration and settings."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _project_root() -> Path:
+    """Locate the project root (the directory containing pyproject.toml).
+
+    Falls back to the current working directory if no marker is found, so the
+    DB always lands somewhere writable and easy to manage rather than under
+    a hidden ~/.local path.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return Path.cwd()
+
+
+def _default_db_path() -> Path:
+    return _project_root() / "state.db"
+
+
+class Settings(BaseSettings):
+    """Runtime configuration, populated from the environment."""
+
+    model_config = SettingsConfigDict(env_prefix="", extra="ignore")
+
+    # Typesense connection
+    typesense_host: str = "localhost"
+    typesense_port: int = 8108
+    typesense_protocol: str = "http"
+    typesense_api_key: str = "xyz"
+
+    # Application state
+    lenrose_db_path: Path = _default_db_path()
+
+    # Default Typesense collection (index) name for metadata documents
+    lenrose_index_name: str = "lenrose_records"
+
+    # Tiled / webhooks
+    tiled_api_key: str | None = None
+    tiled_webhook_secret: str | None = None
+
+    @property
+    def typesense_nodes(self) -> list[dict]:
+        return [
+            {
+                "host": self.typesense_host,
+                "port": self.typesense_port,
+                "protocol": self.typesense_protocol,
+            }
+        ]
+
+    def ensure_db_dir(self) -> None:
+        self.lenrose_db_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return a cached Settings instance."""
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings

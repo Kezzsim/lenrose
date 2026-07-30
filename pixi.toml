@@ -1,0 +1,23 @@
+[project]
+name = "lenrose"
+version = "0.1.0"
+description = "Lenrose - Scientific Metadata Search Engine for Bluesky Tiled"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+
+[tasks]
+tui = "python -m lenrose.tui.app"
+serve = "uvicorn lenrose.server.app:app --reload --host 0.0.0.0 --port 8001"
+test = "pytest -v"
+typesense-up = "docker compose up -d typesense"
+typesense-down = "docker compose down"
+build-web = { cmd = "npm install && npm run build", cwd = "src/lenrose/web" }
+dev-web = { cmd = "npm run dev", cwd = "src/lenrose/web" }
+
+[dependencies]
+python = ">=3.11"
+nodejs = ">=20"
+pip = "*"
+
+[pypi-dependencies]
+lenrose = { path = ".", editable = true, extras = ["test"] }

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/theme.ts","./src/api/client.ts","./src/components/facets.tsx","./src/components/recorddetail.tsx","./src/components/resultlist.tsx","./src/components/searchbar.tsx","./src/layout/config.ts"],"version":"5.9.3"}
