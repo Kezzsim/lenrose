@@ -7,6 +7,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Button, Checkbox, Header, Label, Static
 
+from lenrose.schema.inference import parent_of
 from lenrose.state.models import KeySpec
 from lenrose.tiled_client.introspect import introspect_container
 
@@ -49,28 +50,37 @@ class KeySelectScreen(Screen):
 
         status.update(f"Discovered {len(merged)} keys.")
         listing = self.query_one("#keys", VerticalScroll)
-        for dotted, dtype in sorted(merged.items()):
+        # Textual widget IDs may contain only letters, numbers, underscores and
+        # hyphens, so the dotted keys coming from Tiled (e.g.
+        # ``start.BMM_motors.m1_pitch``) cannot be used directly. Assign each
+        # key a stable positional slot and key the widgets off that slot,
+        # keeping the real dotted key in ``self._slots`` for building specs.
+        self._slots: dict[int, str] = {}
+        for slot, (dotted, dtype) in enumerate(sorted(merged.items())):
+            self._slots[slot] = dotted
             row = Horizontal(classes="row")
             listing.mount(row)
             row.mount(
                 Checkbox(f"{dotted} [{dtype}]", value=True,
-                         id=f"inc-{dotted}", classes="keyname")
+                         id=f"inc-{slot}", classes="keyname")
             )
-            row.mount(Checkbox("facet", value=False, id=f"fac-{dotted}"))
+            row.mount(Checkbox("facet", value=False, id=f"fac-{slot}"))
         self._discovered = merged
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "build":
             return
         specs: list[KeySpec] = []
-        for dotted, dtype in self._discovered.items():
-            inc = self.query_one(f"#inc-{dotted}", Checkbox).value
+        for slot, dotted in self._slots.items():
+            dtype = self._discovered[dotted]
+            inc = self.query_one(f"#inc-{slot}", Checkbox).value
             if not inc:
                 continue
-            fac = self.query_one(f"#fac-{dotted}", Checkbox).value
+            fac = self.query_one(f"#fac-{slot}", Checkbox).value
             specs.append(
                 KeySpec(
                     dotted_key=dotted,
+                    parent=parent_of(dotted),
                     datatype=dtype,
                     is_facet=fac,
                     is_index=True,

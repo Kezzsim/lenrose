@@ -22,7 +22,16 @@ def flatten(metadata: dict, prefix: str = "") -> dict[str, object]:
 
 
 def infer_type(value: object) -> str:
-    """Infer a Typesense field type from a Python value."""
+    """Infer a Typesense field type from a Python value.
+
+    Scalars map to their Typesense type. A flat list/tuple of a single scalar
+    kind maps to the matching array type. Anything Typesense cannot store
+    natively -- an empty list, a list whose elements are themselves lists/dicts
+    (e.g. Bluesky ``hints.dimensions`` like ``[[["x"], "primary"]]``), a list of
+    mixed scalar kinds, or a bare dict that escaped flattening -- falls back to
+    ``string`` and is JSON-serialised at document build time. Returning a scalar
+    array type for a nested list would make Typesense reject the document.
+    """
     if isinstance(value, bool):
         return "bool"
     if isinstance(value, int):
@@ -33,15 +42,21 @@ def infer_type(value: object) -> str:
         return "string"
     if isinstance(value, (list, tuple)):
         if not value:
-            return "string[]"
-        elem = value[0]
-        if isinstance(elem, bool):
+            # Unknown element type; store as a JSON string to stay safe.
+            return "string"
+        # Every element must be the same scalar kind for an array type.
+        if any(isinstance(v, (list, tuple, dict)) for v in value):
+            return "string"
+        if all(isinstance(v, bool) for v in value):
             return "bool[]"
-        if isinstance(elem, int):
+        if all(isinstance(v, int) and not isinstance(v, bool) for v in value):
             return "int64[]"
-        if isinstance(elem, float):
+        if all(isinstance(v, float) for v in value):
             return "float[]"
-        return "string[]"
+        if all(isinstance(v, str) for v in value):
+            return "string[]"
+        # Mixed scalar kinds -> stringify the whole list.
+        return "string"
     # dicts should have been flattened; fall back to string
     return "string"
 

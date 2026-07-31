@@ -40,7 +40,7 @@ def test_search_by_plan_name(typesense_client, typesense_settings, fake_containe
     import_documents(typesense_client, index, docs)
 
     result = typesense_client.collections[index].documents.search(
-        {"q": "count", "query_by": "start__plan_name"}
+        {"q": "count", "query_by": "plan_name"}
     )
     assert result["found"] == 1
     assert result["hits"][0]["document"]["tiled_key"] == "bmm/scan_001"

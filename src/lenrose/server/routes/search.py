@@ -27,14 +27,18 @@ def search(
     if not query_by:
         # default to searchable string fields recorded in state
         specs = db.load_key_specs()
-        from lenrose.schema.inference import sanitize_field_name
+        from lenrose.schema.inference import field_name_map
 
+        names = field_name_map([s for s in specs if s.selected])
         searchable = [
-            sanitize_field_name(s.dotted_key)
+            names[s.dotted_key]
             for s in specs
-            if s.is_searchable and s.datatype.startswith("string")
+            if s.dotted_key in names
+            and s.is_searchable
+            and s.is_index
+            and s.datatype.startswith("string")
         ]
-        query_by = ",".join(searchable) if searchable else "collection"
+        query_by = ",".join(dict.fromkeys(searchable)) if searchable else "collection"
 
     params = {
         "q": q,
@@ -58,11 +62,13 @@ def search(
 def facets():
     """Return the default facet fields (collection is always included)."""
     specs = db.load_key_specs()
-    from lenrose.schema.inference import sanitize_field_name
+    from lenrose.schema.inference import field_name_map
 
+    names = field_name_map([s for s in specs if s.selected])
     facet_fields = [
-        sanitize_field_name(s.dotted_key) for s in specs if s.is_facet
+        names[s.dotted_key] for s in specs if s.is_facet and s.dotted_key in names
     ]
+    facet_fields = list(dict.fromkeys(facet_fields))
     if "collection" not in facet_fields:
         facet_fields.insert(0, "collection")
     return {"facets": facet_fields}

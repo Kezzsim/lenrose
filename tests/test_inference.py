@@ -29,7 +29,15 @@ def test_infer_type_bool_before_int():
 def test_infer_type_lists():
     assert infer_type([1, 2]) == "int64[]"
     assert infer_type(["a"]) == "string[]"
-    assert infer_type([]) == "string[]"
+    # Empty and non-scalar/mixed lists cannot be a typed array -> stringify.
+    assert infer_type([]) == "string"
+
+
+def test_infer_type_nested_and_mixed_lists_stringify():
+    # Bluesky hints.dimensions: list of lists -> not a scalar array.
+    assert infer_type([[["dcm_energy"], "primary"]]) == "string"
+    assert infer_type([1, "a"]) == "string"
+    assert infer_type([{"a": 1}]) == "string"
 
 
 def test_reconcile_conflicts():

@@ -18,7 +18,14 @@ import hmac
 from fastapi import APIRouter, HTTPException, Request
 
 from lenrose.config import get_settings
-from lenrose.indexer.ingest import build_document, import_documents, make_doc_id, normalize_collection
+from lenrose.indexer.ingest import (
+    build_document,
+    import_documents,
+    make_doc_id,
+    normalize_collection,
+    selected_field_names,
+    selected_field_types,
+)
 from lenrose.indexer.typesense_client import get_client
 from lenrose.server.tiled_session import get_tiled_client
 from lenrose.state import db
@@ -84,12 +91,15 @@ async def receive(request: Request):
             specs = payload.get("specs")
 
     specs_list = _specs(specs)
-    selected_keys = {s.dotted_key for s in db.load_key_specs() if s.selected and not s.is_system}
+    loaded_specs = db.load_key_specs()
+    field_names = selected_field_names(loaded_specs)
+    field_types = selected_field_types(loaded_specs)
     doc = build_document(
         uuid=str(key),
         collection=collection,
         metadata=metadata,
-        selected_keys=selected_keys,
+        field_names=field_names,
+        field_types=field_types,
         structure_family=structure_family,
         specs=specs_list,
     )

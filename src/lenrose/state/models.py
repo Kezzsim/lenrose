@@ -43,6 +43,11 @@ class KeySpec(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     dotted_key: str = Field(index=True)  # e.g. "start.plan_name"
+    # The path prefix preceding the leaf segment, dot-joined, e.g.
+    # "bmm.detectors.pilatus100k" for the key "bmm.detectors.pilatus100k.size".
+    # Empty for top-level keys. Recorded so the leaf field name used in
+    # Typesense (which cannot contain dots) can be traced back to its origin.
+    parent: str = ""
     datatype: str = "string"  # typesense field type
     is_facet: bool = False
     is_index: bool = True
