@@ -73,3 +73,34 @@ async def test_build_produces_specs_for_nested_keys(fake_container):
         assert "." in spec.dotted_key
         assert spec.is_facet is True
         assert spec.parent == spec.dotted_key.rsplit(".", 1)[0]
+
+
+@pytest.mark.asyncio
+async def test_bulk_key_selection_buttons(fake_container):
+    """Bulk controls must select and deselect include and facet checkboxes."""
+    app = _Harness(fake_container)
+    async with app.run_test() as pilot:
+        await app.push_screen(KeySelectScreen())
+        await pilot.pause()
+        screen = app.screen
+
+        incs = [w for w in screen.query(Checkbox) if str(w.id).startswith("inc-")]
+        facs = [w for w in screen.query(Checkbox) if str(w.id).startswith("fac-")]
+        assert incs
+        assert facs
+
+        screen.query_one("#deselect-all-included").press()
+        await pilot.pause()
+        assert all(not w.value for w in incs)
+
+        screen.query_one("#select-all-included").press()
+        await pilot.pause()
+        assert all(w.value for w in incs)
+
+        screen.query_one("#select-all-faceted").press()
+        await pilot.pause()
+        assert all(w.value for w in facs)
+
+        screen.query_one("#deselect-all-faceted").press()
+        await pilot.pause()
+        assert all(not w.value for w in facs)

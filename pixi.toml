@@ -11,6 +11,8 @@ serve = "uvicorn lenrose.server.app:app --reload --host 0.0.0.0 --port 8001"
 test = "pytest -v"
 typesense-up = "docker compose up -d typesense"
 typesense-down = "docker compose down"
+typesense-up-p = "podman compose up -d typesense"
+typesense-down-p = "podman compose down"
 build-web = { cmd = "npm install && npm run build", cwd = "src/lenrose/web" }
 dev-web = { cmd = "npm run dev", cwd = "src/lenrose/web" }
 
