@@ -26,13 +26,19 @@ export default function App() {
   const [facetFields, setFacetFields] = useState<string[]>(
     layout.defaultFacets
   );
+  const [facetTypes, setFacetTypes] = useState<Record<string, string>>({});
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [selected, setSelected] = useState<SearchHitDocument | null>(null);
 
   useEffect(() => {
-    getFacets().then(setFacetFields).catch(() => undefined);
+    getFacets()
+      .then(({ facets, facetTypes }) => {
+        setFacetFields(facets);
+        setFacetTypes(facetTypes);
+      })
+      .catch(() => undefined);
   }, []);
 
   const filterBy = useMemo(() => {
@@ -44,9 +50,16 @@ export default function App() {
       (byField[field] ||= []).push(value);
     }
     return Object.entries(byField)
-      .map(([f, vals]) => `${f}:=[${vals.map((v) => `\`${v}\``).join(",")}]`)
+      .map(([f, vals]) => {
+        if (facetTypes[f] === "bool") {
+          return vals.length === 1
+            ? `${f}:=${vals[0]}`
+            : `${f}:=[${vals.join(",")}]`;
+        }
+        return `${f}:=[${vals.map((v) => `\`${v}\``).join(",")}]`;
+      })
       .join(" && ");
-  }, [activeFilters]);
+  }, [activeFilters, facetTypes]);
 
   const runSearch = useCallback(() => {
     search({
