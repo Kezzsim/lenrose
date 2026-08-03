@@ -20,3 +20,6 @@ src/lenrose/web/dist/
 
 # OS
 .DS_Store
+
+# Typesense
+typesense-data/
