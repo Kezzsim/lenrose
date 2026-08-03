@@ -15,6 +15,11 @@ export interface FacetCount {
   counts: { value: string; count: number }[];
 }
 
+export interface FacetsResponse {
+  facets: string[];
+  facetTypes: Record<string, string>;
+}
+
 export interface SearchResponse {
   found: number;
   page: number;
@@ -50,11 +55,14 @@ export async function search(params: {
   return res.json();
 }
 
-export async function getFacets(): Promise<string[]> {
+export async function getFacets(): Promise<FacetsResponse> {
   const res = await fetch(`${base}/api/facets`);
-  if (!res.ok) return ["collection"];
+  if (!res.ok) return { facets: ["collection"], facetTypes: {} };
   const data = await res.json();
-  return data.facets ?? ["collection"];
+  return {
+    facets: data.facets ?? ["collection"],
+    facetTypes: data.facet_types ?? {},
+  };
 }
 
 export async function getRecord(
