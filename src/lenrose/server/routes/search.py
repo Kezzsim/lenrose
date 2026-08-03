@@ -11,6 +11,37 @@ from lenrose.state import db
 router = APIRouter(prefix="/api", tags=["search"])
 
 
+def _field_name_map(specs) -> dict[str, str]:
+    from lenrose.schema.inference import field_name_map
+
+    return field_name_map([s for s in specs if s.selected])
+
+
+def _facet_type_map(specs) -> dict[str, str]:
+    names = _field_name_map(specs)
+
+    return {
+        names[s.dotted_key]: s.datatype
+        for s in specs
+        if s.dotted_key in names and s.selected
+    }
+
+
+def _normalize_bool_filters(filter_by: str | None) -> str | None:
+    """Accept stale UI bool filters that quote true/false as strings."""
+    if not filter_by:
+        return filter_by
+
+    for field, datatype in _facet_type_map(db.load_key_specs()).items():
+        if datatype != "bool":
+            continue
+        filter_by = filter_by.replace(f"{field}:=[`true`]", f"{field}:=true")
+        filter_by = filter_by.replace(f"{field}:=[`false`]", f"{field}:=false")
+        filter_by = filter_by.replace(f"{field}:=`true`", f"{field}:=true")
+        filter_by = filter_by.replace(f"{field}:=`false`", f"{field}:=false")
+    return filter_by
+
+
 @router.get("/search")
 def search(
     q: str = Query("*", description="Query string"),
@@ -27,9 +58,8 @@ def search(
     if not query_by:
         # default to searchable string fields recorded in state
         specs = db.load_key_specs()
-        from lenrose.schema.inference import field_name_map
 
-        names = field_name_map([s for s in specs if s.selected])
+        names = _field_name_map(specs)
         searchable = [
             names[s.dotted_key]
             for s in specs
@@ -49,7 +79,7 @@ def search(
     if facet_by:
         params["facet_by"] = facet_by
     if filter_by:
-        params["filter_by"] = filter_by
+        params["filter_by"] = _normalize_bool_filters(filter_by)
 
     try:
         result = client.collections[settings.lenrose_index_name].documents.search(params)
@@ -62,13 +92,13 @@ def search(
 def facets():
     """Return the default facet fields (collection is always included)."""
     specs = db.load_key_specs()
-    from lenrose.schema.inference import field_name_map
 
-    names = field_name_map([s for s in specs if s.selected])
+    names = _field_name_map(specs)
+    facet_types = _facet_type_map(specs)
     facet_fields = [
         names[s.dotted_key] for s in specs if s.is_facet and s.dotted_key in names
     ]
     facet_fields = list(dict.fromkeys(facet_fields))
     if "collection" not in facet_fields:
         facet_fields.insert(0, "collection")
-    return {"facets": facet_fields}
+    return {"facets": facet_fields, "facet_types": facet_types}
