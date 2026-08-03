@@ -27,12 +27,18 @@ class KeySelectScreen(Screen):
         with Vertical():
             yield Label("Select metadata keys to index (include / facet)")
             yield Static("collection is always indexed and faceted by default.")
+            with Horizontal():
+                yield Button("Select all included", id="select-all-included")
+                yield Button("Deselect all included", id="deselect-all-included")
+                yield Button("Select all facets", id="select-all-faceted")
+                yield Button("Deselect all facets", id="deselect-all-faceted")
             yield VerticalScroll(id="keys")
             yield Static("", id="status")
             with Horizontal():
                 yield Button("Build index", variant="success", id="build")
 
     def on_mount(self) -> None:
+        self._slots: dict[int, str] = {}
         status = self.query_one("#status", Static)
         status.update("Discovering keys...")
         merged: dict[str, str] = {}
@@ -55,7 +61,6 @@ class KeySelectScreen(Screen):
         # ``start.BMM_motors.m1_pitch``) cannot be used directly. Assign each
         # key a stable positional slot and key the widgets off that slot,
         # keeping the real dotted key in ``self._slots`` for building specs.
-        self._slots: dict[int, str] = {}
         for slot, (dotted, dtype) in enumerate(sorted(merged.items())):
             self._slots[slot] = dotted
             row = Horizontal(classes="row")
@@ -68,6 +73,18 @@ class KeySelectScreen(Screen):
         self._discovered = merged
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "select-all-included":
+            self._set_key_checkboxes("inc", True)
+            return
+        if event.button.id == "deselect-all-included":
+            self._set_key_checkboxes("inc", False)
+            return
+        if event.button.id == "select-all-faceted":
+            self._set_key_checkboxes("fac", True)
+            return
+        if event.button.id == "deselect-all-faceted":
+            self._set_key_checkboxes("fac", False)
+            return
         if event.button.id != "build":
             return
         specs: list[KeySpec] = []
@@ -91,3 +108,7 @@ class KeySelectScreen(Screen):
             )
         self.app.ctx.key_specs = specs
         self.app.push_index_progress()
+
+    def _set_key_checkboxes(self, prefix: str, value: bool) -> None:
+        for slot in self._slots:
+            self.query_one(f"#{prefix}-{slot}", Checkbox).value = value
