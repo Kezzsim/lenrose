@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
-from textual.widgets import Checkbox
+from textual.widgets import Checkbox, RadioButton
 
 from lenrose.state.models import SelectedContainer
 from lenrose.tui.context import IngestContext
@@ -104,3 +104,93 @@ async def test_bulk_key_selection_buttons(fake_container):
         screen.query_one("#deselect-all-faceted").press()
         await pilot.pause()
         assert all(not w.value for w in facs)
+
+
+@pytest.mark.asyncio
+async def test_display_selector_mounts_for_all_keys(fake_container):
+    """Any discovered metadata key may be selected as the display label."""
+    app = _Harness(fake_container)
+    async with app.run_test() as pilot:
+        await app.push_screen(KeySelectScreen())
+        await pilot.pause()
+        screen = app.screen
+
+        display_keys = {screen._slots[slot] for slot in screen._display_slots}
+        assert display_keys == set(screen._discovered)
+        assert "start.plan_name" in display_keys
+        assert len(list(screen.query(RadioButton))) == len(screen._discovered)
+
+
+@pytest.mark.asyncio
+async def test_display_selector_marks_name_spec(fake_container):
+    """Selecting a name display option persists it on the built KeySpec."""
+    app = _Harness(fake_container)
+    async with app.run_test() as pilot:
+        await app.push_screen(KeySelectScreen())
+        await pilot.pause()
+        screen = app.screen
+        slot = next(slot for slot, key in screen._slots.items() if key == "sample.name")
+
+        screen.query_one(f"#disp-{slot}", RadioButton).value = True
+        screen.query_one(f"#inc-{slot}", Checkbox).value = False
+        screen.query_one("#build").press()
+        await pilot.pause()
+
+        display_specs = [spec for spec in app.ctx.key_specs if spec.is_display]
+        assert len(display_specs) == 1
+        assert display_specs[0].dotted_key == "sample.name"
+        assert display_specs[0].is_facet is False
+
+
+@pytest.mark.asyncio
+async def test_display_selector_clears_facet_checkbox(fake_container):
+    """Selecting a display name must stop that field appearing as a facet."""
+    app = _Harness(fake_container)
+    async with app.run_test() as pilot:
+        await app.push_screen(KeySelectScreen())
+        await pilot.pause()
+        screen = app.screen
+        slot = next(slot for slot, key in screen._slots.items() if key == "sample.name")
+
+        screen.query_one(f"#fac-{slot}", Checkbox).value = True
+        screen.query_one(f"#disp-{slot}", RadioButton).value = True
+        await pilot.pause()
+        screen.query_one("#build").press()
+        await pilot.pause()
+
+        assert screen.query_one(f"#fac-{slot}", Checkbox).value is False
+        display_spec = next(spec for spec in app.ctx.key_specs if spec.is_display)
+        assert display_spec.dotted_key == "sample.name"
+        assert display_spec.is_facet is False
+
+
+@pytest.mark.asyncio
+async def test_display_selector_allows_only_one_name_field(fake_container):
+    """Radio-style display selectors must be mutually exclusive."""
+    container_cls = type(fake_container)
+    node_cls = type(next(iter(fake_container.children.values())))
+    container = container_cls(
+        children={
+            "scan_001": node_cls(
+                metadata={
+                    "sample": {"name": "Fe2O3"},
+                    "instrument": {"name": "TES"},
+                }
+            )
+        }
+    )
+    app = _Harness(container)
+    async with app.run_test() as pilot:
+        await app.push_screen(KeySelectScreen())
+        await pilot.pause()
+        screen = app.screen
+        slots = sorted(screen._display_slots)
+        assert len(slots) == 2
+
+        screen.query_one(f"#disp-{slots[0]}", RadioButton).value = True
+        await pilot.pause()
+        screen.query_one(f"#disp-{slots[1]}", RadioButton).value = True
+        await pilot.pause()
+
+        assert screen.query_one(f"#disp-{slots[0]}", RadioButton).value is False
+        assert screen.query_one(f"#disp-{slots[1]}", RadioButton).value is True

@@ -6,6 +6,8 @@ Typesense collection schemas are not mutable in place, so schema changes
 
 from __future__ import annotations
 
+from typesense.exceptions import ObjectNotFound
+
 from lenrose.indexer.ingest import (
     documents_from_container,
     import_documents,
@@ -20,7 +22,7 @@ def recreate_collection(ts_client, index_name: str, key_specs: list[KeySpec]) ->
     """Drop (if present) and create the collection with a fresh schema."""
     try:
         ts_client.collections[index_name].delete()
-    except Exception:
+    except ObjectNotFound:
         pass  # collection may not exist yet
     schema = build_schema(index_name, key_specs)
     ts_client.collections.create(schema)

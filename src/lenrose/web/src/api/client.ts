@@ -35,12 +35,24 @@ export interface RecordDetail {
   metadata: Record<string, unknown>;
 }
 
+export interface DisplayFieldOption {
+  value: string;
+  label: string;
+  field: string;
+}
+
+export interface DisplayFieldsResponse {
+  default: string;
+  options: DisplayFieldOption[];
+}
+
 const base = "";
 
 export async function search(params: {
   q: string;
   facetBy?: string;
   filterBy?: string;
+  includeFields?: string;
   page?: number;
   perPage?: number;
 }): Promise<SearchResponse> {
@@ -48,6 +60,7 @@ export async function search(params: {
   qs.set("q", params.q || "*");
   if (params.facetBy) qs.set("facet_by", params.facetBy);
   if (params.filterBy) qs.set("filter_by", params.filterBy);
+  if (params.includeFields) qs.set("include_fields", params.includeFields);
   qs.set("page", String(params.page ?? 1));
   qs.set("per_page", String(params.perPage ?? 20));
   const res = await fetch(`${base}/api/search?${qs.toString()}`);
@@ -63,6 +76,17 @@ export async function getFacets(): Promise<FacetsResponse> {
     facets: data.facets ?? ["collection"],
     facetTypes: data.facet_types ?? {},
   };
+}
+
+export async function getDisplayFields(): Promise<DisplayFieldsResponse> {
+  const res = await fetch(`${base}/api/display-fields`);
+  if (!res.ok) {
+    return {
+      default: "uuid",
+      options: [{ value: "uuid", label: "UUID", field: "uuid" }],
+    };
+  }
+  return res.json();
 }
 
 export async function getRecord(

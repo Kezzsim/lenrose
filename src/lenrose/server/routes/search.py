@@ -27,6 +27,17 @@ def _facet_type_map(specs) -> dict[str, str]:
     }
 
 
+def _display_field_option(specs) -> dict[str, str] | None:
+    names = _field_name_map(specs)
+    for spec in specs:
+        if not spec.selected or not spec.is_display or spec.is_system:
+            continue
+        field = names.get(spec.dotted_key)
+        if field:
+            return {"value": spec.dotted_key, "label": spec.dotted_key, "field": field}
+    return None
+
+
 def _normalize_bool_filters(filter_by: str | None) -> str | None:
     """Accept stale UI bool filters that quote true/false as strings."""
     if not filter_by:
@@ -48,6 +59,7 @@ def search(
     query_by: str | None = Query(None, description="Comma-separated fields"),
     facet_by: str | None = Query(None),
     filter_by: str | None = Query(None),
+    include_fields: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=250),
 ):
@@ -80,6 +92,8 @@ def search(
         params["facet_by"] = facet_by
     if filter_by:
         params["filter_by"] = _normalize_bool_filters(filter_by)
+    if include_fields:
+        params["include_fields"] = include_fields
 
     try:
         result = client.collections[settings.lenrose_index_name].documents.search(params)
@@ -96,9 +110,21 @@ def facets():
     names = _field_name_map(specs)
     facet_types = _facet_type_map(specs)
     facet_fields = [
-        names[s.dotted_key] for s in specs if s.is_facet and s.dotted_key in names
+        names[s.dotted_key]
+        for s in specs
+        if s.is_facet and not s.is_display and s.dotted_key in names
     ]
     facet_fields = list(dict.fromkeys(facet_fields))
     if "collection" not in facet_fields:
         facet_fields.insert(0, "collection")
     return {"facets": facet_fields, "facet_types": facet_types}
+
+
+@router.get("/display-fields")
+def display_fields():
+    """Return fields the UI may use as the primary result-list label."""
+    display_option = _display_field_option(db.load_key_specs())
+    options = [{"value": "uuid", "label": "UUID", "field": "uuid"}]
+    if display_option:
+        options.append(display_option)
+    return {"default": display_option["value"] if display_option else "uuid", "options": options}

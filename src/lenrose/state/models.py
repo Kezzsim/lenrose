@@ -52,6 +52,7 @@ class KeySpec(SQLModel, table=True):
     is_facet: bool = False
     is_index: bool = True
     is_searchable: bool = True
+    is_display: bool = False  # optional human-legible list label
     is_system: bool = False  # locked system fields (uuid, collection, tiled_key)
     selected: bool = True
 
