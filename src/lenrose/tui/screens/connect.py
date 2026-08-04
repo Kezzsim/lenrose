@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit, urlunsplit
+
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import Screen
@@ -9,6 +11,35 @@ from textual.widgets import Button, Header, Input, Label, Select, Static
 
 from lenrose.state import db
 from lenrose.tiled_client.auth import AuthMethod, TiledConnectionInfo, connect
+
+
+def _port_from_uri(uri: str) -> str:
+    try:
+        port = urlsplit(uri).port
+    except ValueError:
+        return ""
+    return str(port) if port is not None else ""
+
+
+def _uri_with_port(uri: str, port: int | None) -> str:
+    if port is None:
+        return uri
+
+    parts = urlsplit(uri)
+    if not parts.scheme or not parts.netloc:
+        return uri
+
+    hostname = parts.hostname
+    if not hostname:
+        return uri
+
+    userinfo = ""
+    if "@" in parts.netloc:
+        userinfo = f"{parts.netloc.rsplit('@', 1)[0]}@"
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    netloc = f"{userinfo}{hostname}:{port}"
+    return urlunsplit(parts._replace(netloc=netloc))
 
 
 class ConnectScreen(Screen):
@@ -36,6 +67,11 @@ class ConnectScreen(Screen):
                 placeholder="https://tiled.example.com",
                 value=last.uri if last else "",
                 id="uri",
+            )
+            yield Input(
+                placeholder="Tiled port, e.g. 8000",
+                value=(_port_from_uri(last.uri) if last else ""),
+                id="port",
             )
             yield Select(
                 [(m.value, m.value) for m in AuthMethod],
@@ -70,6 +106,18 @@ class ConnectScreen(Screen):
         if not uri:
             status.update("Please enter a Tiled URI.")
             return
+        port_value = self.query_one("#port", Input).value.strip()
+        port = None
+        if port_value:
+            try:
+                port = int(port_value)
+            except ValueError:
+                status.update("Tiled port must be a number.")
+                return
+            if port <= 0:
+                status.update("Tiled port must be positive.")
+                return
+        uri = _uri_with_port(uri, port)
         method = AuthMethod(self.query_one("#auth", Select).value)
         info = TiledConnectionInfo(
             uri=uri,
