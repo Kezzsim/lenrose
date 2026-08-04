@@ -11,6 +11,7 @@ from lenrose.tui.screens.connect import ConnectScreen
 from lenrose.tui.screens.container_select import ContainerSelectScreen
 from lenrose.tui.screens.index_progress import IndexProgressScreen
 from lenrose.tui.screens.key_select import KeySelectScreen
+from lenrose.tui.screens.typesense_config import TypesenseConfigScreen
 
 
 class LenroseApp(App):
@@ -25,6 +26,9 @@ class LenroseApp(App):
         self.ctx = IngestContext()
 
     def on_mount(self) -> None:
+        self.push_screen(TypesenseConfigScreen())
+
+    def push_tiled_connect(self) -> None:
         self.push_screen(ConnectScreen())
 
     def push_container_select(self) -> None:

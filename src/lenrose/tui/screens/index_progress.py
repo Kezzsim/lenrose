@@ -7,7 +7,6 @@ from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Header, Label, ProgressBar, Static
 
-from lenrose.config import get_settings
 from lenrose.indexer.rebuild import persisted_key_specs, rebuild
 from lenrose.indexer.typesense_client import get_client
 from lenrose.state import db
@@ -33,8 +32,8 @@ class IndexProgressScreen(Screen):
         self.run_worker(self._build, thread=True)
 
     def _build(self) -> None:
-        settings = get_settings()
         ctx = self.app.ctx
+        settings = ctx.settings
         log = self.query_one("#log", Static)
         bar = self.query_one("#bar", ProgressBar)
 
