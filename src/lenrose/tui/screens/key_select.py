@@ -16,7 +16,7 @@ class KeySelectScreen(Screen):
     """Choose which metadata keys to index and their facet/index options."""
 
     CSS = """
-    VerticalScroll { padding: 1 2; height: 1fr; }
+    VerticalScroll { padding: 1 2; height: 1fr; min-height: 15; }
     .row { height: auto; }
     .keyname { width: 40; }
     #status { color: $warning; }
