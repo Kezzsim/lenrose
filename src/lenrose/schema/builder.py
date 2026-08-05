@@ -37,7 +37,7 @@ def build_schema(index_name: str, key_specs: list[KeySpec]) -> dict:
             {
                 "name": field_name,
                 "type": normalize_type(spec.datatype),
-                "facet": spec.is_facet,
+                "facet": spec.is_facet and not spec.is_display,
                 "index": spec.is_index,
                 "optional": True,
             }

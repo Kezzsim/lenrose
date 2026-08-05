@@ -52,12 +52,25 @@ def get_engine(db_path: str | None = None):
         path = db_path or str(settings.lenrose_db_path)
         _engine = create_engine(f"sqlite:///{path}", echo=False)
         SQLModel.metadata.create_all(_engine)
+        _ensure_key_spec_columns(_engine)
     return _engine
 
 
 def init_db(db_path: str | None = None) -> None:
     engine = get_engine(db_path)
     SQLModel.metadata.create_all(engine)
+    _ensure_key_spec_columns(engine)
+
+
+def _ensure_key_spec_columns(engine) -> None:
+    """Add columns introduced after initial local DB creation."""
+    with engine.connect() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(keyspec)")}
+        if "is_display" not in columns:
+            conn.exec_driver_sql(
+                "ALTER TABLE keyspec ADD COLUMN is_display BOOLEAN NOT NULL DEFAULT 0"
+            )
+            conn.commit()
 
 
 def session_scope() -> Session:

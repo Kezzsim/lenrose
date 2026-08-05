@@ -12,12 +12,31 @@ import type { SearchHitDocument } from "../api/client";
 // style viewers). Stored in the index so we can flag viewable records.
 const VIEWABLE = new Set(["array", "table", "dataframe", "image"]);
 
+function formatDisplayValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const formatted = value
+      .map(formatDisplayValue)
+      .filter((part): part is string => Boolean(part));
+    return formatted.length ? formatted.join(", ") : null;
+  }
+  return null;
+}
+
 export function ResultList({
   hits,
   onSelect,
+  displayField,
 }: {
   hits: { document: SearchHitDocument }[];
   onSelect: (doc: SearchHitDocument) => void;
+  displayField: string;
 }) {
   if (!hits.length) {
     return <Typography color="text.secondary">No results.</Typography>;
@@ -28,6 +47,7 @@ export function ResultList({
         const viewable =
           document.structure_family &&
           VIEWABLE.has(document.structure_family);
+        const title = formatDisplayValue(document[displayField]) ?? document.uuid;
         return (
           <Card key={document.id} variant="outlined">
             <CardActionArea onClick={() => onSelect(document)}>
@@ -39,7 +59,7 @@ export function ResultList({
                   flexWrap="wrap"
                 >
                   <Typography variant="subtitle1" fontWeight={600}>
-                    {document.uuid}
+                    {title}
                   </Typography>
                   <Chip
                     label={document.collection}

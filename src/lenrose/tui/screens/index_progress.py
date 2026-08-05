@@ -6,10 +6,21 @@ from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Header, Label, ProgressBar, Static
+from typesense.exceptions import RequestForbidden, RequestUnauthorized
 
 from lenrose.indexer.rebuild import persisted_key_specs, rebuild
 from lenrose.indexer.typesense_client import get_client
 from lenrose.state import db
+
+
+def _indexing_error_message(exc: Exception) -> str:
+    if isinstance(exc, (RequestForbidden, RequestUnauthorized)):
+        return (
+            "Typesense authentication failed. Set TYPESENSE_API_KEY to the "
+            "same value used by your Typesense server/container (--api-key), "
+            f"then retry. Details: {exc}"
+        )
+    return str(exc)
 
 
 class IndexProgressScreen(Screen):
@@ -49,8 +60,9 @@ class IndexProgressScreen(Screen):
             self.app.call_from_thread(log.update, message)
 
         # Store & index first; only persist selections once a collection is
-        # successfully stored and indexed. On any failure, wipe the state DB so
-        # a partially-written run cannot cause duplicated objects on retry.
+        # successfully stored and indexed. On any failure, wipe any prior
+        # mutable index state so a partially-written run cannot cause duplicated
+        # objects on retry.
         try:
             ts_client = get_client(settings)
             count = rebuild(
@@ -63,7 +75,10 @@ class IndexProgressScreen(Screen):
             )
         except Exception as exc:
             db.reset_state_db()
-            self.app.call_from_thread(log.update, f"Indexing failed (state wiped): {exc}")
+            self.app.call_from_thread(
+                log.update,
+                f"Indexing failed; local index state was cleared. {_indexing_error_message(exc)}",
+            )
             self.app.call_from_thread(
                 self.query_one("#done", Button).__setattr__, "disabled", False
             )

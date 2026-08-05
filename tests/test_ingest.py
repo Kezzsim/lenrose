@@ -33,6 +33,20 @@ def test_user_keys_use_leaf_field_names():
     assert field["facet"] is True
 
 
+def test_display_field_is_never_schema_facet():
+    specs = [
+        KeySpec(
+            dotted_key="sample.name",
+            datatype="string",
+            is_facet=True,
+            is_display=True,
+        )
+    ]
+    schema = build_schema("idx", specs)
+    field = next(f for f in schema["fields"] if f["name"] == "name")
+    assert field["facet"] is False
+
+
 def test_unique_leaf_uses_bare_leaf_name():
     specs = [
         KeySpec(dotted_key="bmm.detectors.pilatus100k.size", datatype="int64"),

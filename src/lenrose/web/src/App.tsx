@@ -6,7 +6,12 @@ import {
   Container,
   Grid,
   Box,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
   Pagination,
+  Radio,
+  RadioGroup,
 } from "@mui/material";
 import { SearchBar } from "./components/SearchBar";
 import { Facets } from "./components/Facets";
@@ -15,8 +20,10 @@ import { RecordDetailDrawer } from "./components/RecordDetail";
 import {
   search,
   getFacets,
+  getDisplayFields,
   type SearchResponse,
   type SearchHitDocument,
+  type DisplayFieldOption,
 } from "./api/client";
 import { loadLayout } from "./layout/config";
 
@@ -31,12 +38,32 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [selected, setSelected] = useState<SearchHitDocument | null>(null);
+  const [displayOptions, setDisplayOptions] = useState<DisplayFieldOption[]>([
+    { value: "uuid", label: "UUID", field: "uuid" },
+  ]);
+  const [displayValue, setDisplayValue] = useState("uuid");
 
   useEffect(() => {
     getFacets()
       .then(({ facets, facetTypes }) => {
         setFacetFields(facets);
         setFacetTypes(facetTypes);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    getDisplayFields()
+      .then(({ default: defaultValue, options }) => {
+        const nextOptions = options.length
+          ? options
+          : [{ value: "uuid" as const, label: "UUID", field: "uuid" }];
+        setDisplayOptions(nextOptions);
+        setDisplayValue(
+          nextOptions.some((option) => option.value === defaultValue)
+            ? defaultValue
+            : nextOptions[0]?.value ?? "uuid"
+        );
       })
       .catch(() => undefined);
   }, []);
@@ -61,17 +88,33 @@ export default function App() {
       .join(" && ");
   }, [activeFilters, facetTypes]);
 
+  const displayField =
+    displayOptions.find((option) => option.value === displayValue)?.field ??
+    "uuid";
+  const includeFields = Array.from(
+    new Set([
+      "id",
+      "uuid",
+      "collection",
+      "tiled_key",
+      "structure_family",
+      "specs",
+      displayField,
+    ])
+  ).join(",");
+
   const runSearch = useCallback(() => {
     search({
       q: query,
       facetBy: facetFields.join(","),
       filterBy: filterBy || undefined,
+      includeFields,
       page,
       perPage: layout.resultsPerPage,
     })
       .then(setResponse)
       .catch(() => setResponse(null));
-  }, [query, facetFields, filterBy, page, layout.resultsPerPage]);
+  }, [query, facetFields, filterBy, includeFields, page, layout.resultsPerPage]);
 
   useEffect(() => {
     runSearch();
@@ -90,7 +133,6 @@ export default function App() {
   const totalPages = response
     ? Math.max(1, Math.ceil(response.found / layout.resultsPerPage))
     : 1;
-
   return (
     <>
       <AppBar position="static">
@@ -124,12 +166,43 @@ export default function App() {
             </Grid>
           )}
           <Grid item xs={12} md={layout.showFacets ? 9 : 12}>
-            <Typography variant="body2" color="text.secondary" mb={1}>
-              {response?.found ?? 0} results
-            </Typography>
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              gap={2}
+              flexWrap="wrap"
+              mb={1}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {response?.found ?? 0} results
+              </Typography>
+              <FormControl size="small">
+                <FormLabel id="display-field-label">Display</FormLabel>
+                <RadioGroup
+                  row
+                  aria-labelledby="display-field-label"
+                  name="display-field"
+                  value={displayValue}
+                  onChange={(event) =>
+                    setDisplayValue(event.target.value)
+                  }
+                >
+                  {displayOptions.map((option) => (
+                    <FormControlLabel
+                      key={option.value}
+                      value={option.value}
+                      control={<Radio size="small" />}
+                      label={option.label}
+                    />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+            </Box>
             <ResultList
               hits={response?.hits ?? []}
               onSelect={setSelected}
+              displayField={displayField}
             />
             <Box display="flex" justifyContent="center" mt={3}>
               <Pagination
