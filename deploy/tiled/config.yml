@@ -1,0 +1,21 @@
+# Preconfigured Tiled server for local development and CI.
+#
+# This stands up a self-contained Tiled instance backed by an in-container
+# SQLite catalog seeded with the bundled example data, secured with a single
+# static API key so the rest of the stack can authenticate deterministically.
+#
+# It is intentionally *not* production hardened: the API key is a well known
+# development value and single-user auth is used.
+authentication:
+  allow_anonymous_access: false
+  single_user_api_key: ${TILED_API_KEY}
+
+trees:
+  - path: /
+    tree: catalog
+    args:
+      # Written to the container's own writable filesystem, so no host
+      # bind mount or pre-existing "/data" directory is required.
+      uri: "sqlite+aiosqlite:////deploy/data/catalog.db"
+      writable_storage: "file:///deploy/data/storage"
+      init_if_not_exists: true

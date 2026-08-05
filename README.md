@@ -19,6 +19,20 @@ pixi run tui
 pixi run serve
 ```
 
+### Resetting local containers
+
+```sh
+# Empty the container CONTENTS (wipe all Typesense collections and the Tiled
+# catalog) while keeping the containers running and API keys unchanged.
+pixi run services-empty
+
+# Full teardown: stop containers and delete their data volumes.
+pixi run services-reset
+```
+
+All services share a single, consistent API key across the stack
+(`secret` by default; override with `TYPESENSE_API_KEY` / `TILED_API_KEY`).
+
 ## Architecture
 
 - **TUI** (Textual): connect to Tiled, select containers + result limits,
@@ -41,7 +55,7 @@ pixi run serve
 | `TYPESENSE_HOST` | `localhost` | Typesense host |
 | `TYPESENSE_PORT` | `8108` | Typesense port |
 | `TYPESENSE_PROTOCOL` | `http` | `http` or `https` |
-| `TYPESENSE_API_KEY` | `xyz` | Typesense admin API key |
+| `TYPESENSE_API_KEY` | `secret` | Typesense admin API key |
 | `LENROSE_DB_PATH` | `~/.local/state/lenrose/state.db` | SQLite app state |
-| `TILED_API_KEY` | _unset_ | Tiled API key (optional) |
+| `TILED_API_KEY` | `secret` | Tiled API key (matches the dev stack) |
 | `TILED_WEBHOOK_SECRET` | _unset_ | HMAC secret for webhook verification |

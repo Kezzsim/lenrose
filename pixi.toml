@@ -9,10 +9,38 @@ platforms = ["osx-arm64", "osx-64", "linux-64"]
 tui = "python -m lenrose.tui.app"
 serve = "uvicorn lenrose.server.app:app --reload --host 0.0.0.0 --port 8001"
 test = "pytest -v"
+
+# --- Service orchestration -------------------------------------------------
+# Bring up the entire self-contained backing stack (Typesense + a
+# preconfigured Tiled server) with a single command. Services manage their
+# own data internally, so no external setup is required.
+services-up = "docker compose up -d --wait"
+services-down = "docker compose down"
+services-logs = "docker compose logs -f"
+# Full teardown: stop containers AND delete their data volumes.
+services-reset = "docker compose down -v"
+# Empty the container contents for a clean local development slate while
+# keeping the (consistently-keyed) containers running: wipe every Typesense
+# collection and reset the Tiled catalog/storage, then restart so services
+# reinitialise from empty. Data volumes and API keys are preserved.
+services-empty = { cmd = "python scripts/empty_services.py", depends-on = ["services-up"] }
+
+# Podman equivalents.
+services-up-p = "podman compose up -d"
+services-down-p = "podman compose down"
+
+# Backwards-compatible aliases for the Typesense-only workflow.
 typesense-up = "docker compose up -d typesense"
 typesense-down = "docker compose down"
 typesense-up-p = "podman compose up -d typesense"
 typesense-down-p = "podman compose down"
+
+# Stand up the stack, then run the test suite against it.
+test-e2e = { cmd = "pytest -v", depends-on = ["services-up"] }
+
+# One-shot developer bootstrap: services + reloading web dev server.
+dev = { cmd = "npm run dev", cwd = "src/lenrose/web", depends-on = ["services-up"] }
+
 build-web = { cmd = "npm install && npm run build", cwd = "src/lenrose/web" }
 dev-web = { cmd = "npm run dev", cwd = "src/lenrose/web" }
 

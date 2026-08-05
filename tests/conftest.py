@@ -41,7 +41,7 @@ def typesense_settings():
         typesense_host=os.environ.get("TYPESENSE_HOST", "localhost"),
         typesense_port=int(os.environ.get("TYPESENSE_PORT", "8108")),
         typesense_protocol=os.environ.get("TYPESENSE_PROTOCOL", "http"),
-        typesense_api_key=os.environ.get("TYPESENSE_API_KEY", "xyz"),
+        typesense_api_key=os.environ.get("TYPESENSE_API_KEY", "secret"),
         lenrose_index_name=f"test_{uuidlib.uuid4().hex[:8]}",
     )
 

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     typesense_host: str = "localhost"
     typesense_port: int = 8108
     typesense_protocol: str = "http"
-    typesense_api_key: str = "xyz"
+    typesense_api_key: str = "secret"
 
     # Application state
     lenrose_db_path: Path = _default_db_path()
@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     lenrose_index_name: str = "lenrose_records"
 
     # Tiled / webhooks
-    tiled_api_key: str | None = None
+    #
+    # Defaults match the self-contained dev stack (docker-compose.yml and
+    # deploy/tiled/entrypoint.sh both fall back to ``secret``) so the backend
+    # authenticates against the local Tiled container out of the box.
+    tiled_api_key: str | None = "secret"
     tiled_webhook_secret: str | None = None
 
     @property
