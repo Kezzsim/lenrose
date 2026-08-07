@@ -9,6 +9,8 @@
 authentication:
   allow_anonymous_access: false
   single_user_api_key: ${TILED_API_KEY}
+allow_origins:
+  - http://localhost:8001
 
 trees:
   - path: /

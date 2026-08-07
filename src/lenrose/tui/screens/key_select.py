@@ -18,8 +18,8 @@ class KeySelectScreen(Screen):
     CSS = """
     VerticalScroll { padding: 1 2; height: 1fr; min-height: 15; }
     .row { height: auto; }
-    .keyname { width: 40; }
-    .display { width: 10; }
+    .keyname { width: 1fr; min-width: 30; }
+    .display { width: 18; }
     #status { color: $warning; }
     """
 
