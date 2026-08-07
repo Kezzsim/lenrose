@@ -46,21 +46,73 @@ def reset_tiled_client() -> None:
     _resolved = False
 
 
-def server_tiled_summary() -> dict:
-    """Describe the server's preconfigured Tiled connection (no secrets).
+def _connection_uri() -> str | None:
+    """URI of the most recent Tiled connection saved via the TUI, if any."""
+    try:
+        from lenrose.state import db
 
-    Used by the frontend to label the default ("preconfigured") auth option and
-    to decide whether a preconfigured connection is even available.
+        connection = db.load_last_connection()
+    except Exception:
+        return None
+    return connection.uri if connection else None
+
+
+def _tiled_api_url() -> str | None:
+    """Public Tiled API base URL for direct browser access.
+
+    Source precedence (highest first):
+      1. ``LENROSE_TILED_PUBLIC_URI`` / ``LENROSE_TILED_URI`` env — an explicit,
+         browser-facing override that always wins.
+      2. The Tiled connection the user saved in the TUI (state DB), so the web
+         app talks to the same server the data was ingested from (e.g. a remote
+         instance like tiled-demo) rather than a local Tiled.
+
+    Returns the ``/api/v1`` REST base, never a secret.
     """
-    uri = os.environ.get("LENROSE_TILED_URI")
-    if not uri:
-        return {"configured": False, "method": None}
-    method = (
-        AuthMethod.API_KEY.value
-        if os.environ.get("TILED_API_KEY")
-        else AuthMethod.ANONYMOUS.value
+    uri = (
+        os.environ.get("LENROSE_TILED_PUBLIC_URI")
+        or os.environ.get("LENROSE_TILED_URI")
+        or _connection_uri()
     )
-    return {"configured": True, "method": method}
+    if not uri:
+        return None
+    base = uri.rstrip("/")
+    if base.endswith("/api/v1"):
+        return base
+    return f"{base}/api/v1"
+
+
+def server_tiled_summary() -> dict:
+    """Describe the Tiled connection the browser should use (no secrets).
+
+    Reports the public Tiled API URL for direct browser->Tiled data access,
+    derived from the env override or the TUI-saved connection. Used by the
+    frontend to decide whether direct Tiled access is possible and to label the
+    auth options. Secrets (API keys) are never included.
+    """
+    api_url = _tiled_api_url()
+    if api_url is None:
+        return {"configured": False, "method": None, "apiUrl": None}
+
+    # Prefer the saved connection's auth method when available; fall back to the
+    # env-based method. This is a display hint only.
+    method = None
+    try:
+        from lenrose.state import db
+
+        connection = db.load_last_connection()
+        if connection:
+            method = connection.auth_method
+    except Exception:
+        method = None
+    if method is None:
+        method = (
+            AuthMethod.API_KEY.value
+            if os.environ.get("TILED_API_KEY")
+            else AuthMethod.ANONYMOUS.value
+        )
+
+    return {"configured": True, "method": method, "apiUrl": api_url}
 
 
 def client_from_credentials(

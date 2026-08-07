@@ -89,3 +89,5 @@ def test_search_config_shape(monkeypatch):
     assert "plan_name" in cfg["queryBy"]
     assert "configured" in cfg["tiled"]
     assert cfg["tiled"]["method"] in (None, "anonymous", "api_key")
+    # Public Tiled API URL is exposed so the browser can load data directly.
+    assert "apiUrl" in cfg["tiled"]

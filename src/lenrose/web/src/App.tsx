@@ -28,6 +28,8 @@ import { createSearchClient } from "./search/searchClient";
 import { useSettings } from "./state/settings";
 import { loadLayout } from "./layout/config";
 import type { SearchHitDocument } from "./api/client";
+import { TiledProvider } from "./tiled/TiledProvider";
+import { StreamFacetProvider } from "./state/StreamFacetContext";
 
 function ResultsCount() {
   const { nbHits } = useStats();
@@ -50,6 +52,16 @@ export default function App() {
     return createSearchClient(typesense, config);
   }, [typesense, config]);
 
+  // Effective Tiled API URL: a user-supplied override (from the settings
+  // dialog) wins over whatever the server reports (env / TUI-saved connection).
+  const tiledApiUrl = useMemo(() => {
+    const override = credentials?.tiledApiUrl?.trim();
+    const chosen = override || config?.tiled.apiUrl || null;
+    if (!chosen) return null;
+    const base = chosen.replace(/\/$/, "");
+    return base.endsWith("/api/v1") ? base : `${base}/api/v1`;
+  }, [credentials?.tiledApiUrl, config?.tiled.apiUrl]);
+
   const displayFields = config?.displayFields ?? [
     { value: "uuid", label: "UUID", field: "uuid" },
   ];
@@ -58,6 +70,9 @@ export default function App() {
   const displayField =
     displayFields.find((o) => o.value === activeDisplay)?.field ?? "uuid";
 
+  // Return the core identity fields plus every facet and display field so the
+  // Tiled-unavailable fallback can render meaningful indexed metadata without
+  // any extra request.
   const includeFields = Array.from(
     new Set([
       "id",
@@ -67,6 +82,8 @@ export default function App() {
       "structure_family",
       "specs",
       displayField,
+      ...(config?.facets ?? []),
+      ...displayFields.map((o) => o.field),
     ])
   ).join(",");
 
@@ -135,7 +152,15 @@ export default function App() {
   return (
     <>
       {header}
-      <InstantSearch searchClient={searchClient} indexName={config!.collection}>
+      <TiledProvider
+        apiUrl={tiledApiUrl}
+        credentials={credentials}
+      >
+        <StreamFacetProvider>
+          <InstantSearch
+            searchClient={searchClient}
+            indexName={config!.collection}
+          >
         <Configure
           hitsPerPage={layout.resultsPerPage}
           // Passed through to Typesense by the adapter.
@@ -191,12 +216,13 @@ export default function App() {
             </Grid>
           </Grid>
         </Container>
-      </InstantSearch>
-      <RecordDetailDrawer
-        doc={selected}
-        tiledCredentials={credentials}
-        onClose={() => setSelected(null)}
-      />
+          </InstantSearch>
+          <RecordDetailDrawer
+            doc={selected}
+            onClose={() => setSelected(null)}
+          />
+        </StreamFacetProvider>
+      </TiledProvider>
       {settingsDialog}
     </>
   );

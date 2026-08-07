@@ -15,7 +15,7 @@ const config: SearchConfig = {
   facetTypes: {},
   displayFields: [{ value: "uuid", label: "UUID", field: "uuid" }],
   defaultDisplay: "uuid",
-  tiled: { configured: true, method: "api_key" },
+  tiled: { configured: true, method: "api_key", apiUrl: "http://tiled/api/v1" },
 };
 
 describe("resolveTypesense", () => {

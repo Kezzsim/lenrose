@@ -14,16 +14,12 @@ describe("credentials store", () => {
     expect(await loadCredentials()).toEqual({});
   });
 
-  it("persists and reloads Tiled password credentials", async () => {
+  it("persists and reloads anonymous credentials", async () => {
     await saveCredentials({
-      tiledAuthMethod: "password",
-      tiledUsername: "alice",
-      tiledPassword: "hunter2",
+      tiledAuthMethod: "anonymous",
     });
     expect(await loadCredentials()).toEqual({
-      tiledAuthMethod: "password",
-      tiledUsername: "alice",
-      tiledPassword: "hunter2",
+      tiledAuthMethod: "anonymous",
     });
   });
 

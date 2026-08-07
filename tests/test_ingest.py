@@ -1,6 +1,7 @@
 """Tests for schema building and document construction."""
 
 import json
+import enum
 
 from lenrose.indexer.ingest import (
     build_document,
@@ -11,6 +12,29 @@ from lenrose.indexer.ingest import (
 )
 from lenrose.schema.builder import build_schema, system_key_specs
 from lenrose.state.models import KeySpec
+
+
+class _StructureFamily(enum.Enum):
+    """Mimics Tiled's StructureFamily enum: str() -> 'StructureFamily.container'
+    while .value -> 'container'."""
+
+    container = "container"
+    array = "array"
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"StructureFamily.{self.name}"
+
+
+def test_documents_store_clean_structure_family_from_enum(fake_container):
+    # Give one record a real-enum-like structure_family.
+    node = fake_container.children["scan_001"]
+    node.structure_family = _StructureFamily.container
+
+    docs = documents_from_container(fake_container, "bmm", [])
+    by_id = {d["uuid"]: d for d in docs}
+
+    assert by_id["scan_001"]["structure_family"] == "container"
+    assert "StructureFamily" not in by_id["scan_001"]["structure_family"]
 
 
 def test_schema_always_has_system_fields():

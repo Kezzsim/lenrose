@@ -18,7 +18,9 @@ export const DEFAULT_LAYOUT: LayoutConfig = {
   showFacets: true,
   facetsPosition: "left",
   defaultFacets: ["collection"],
-  resultsPerPage: 20,
+  // Kept small so that at most ~10 preview-bearing cards render per page,
+  // bounding how many Tiled requests can be triggered by a single page.
+  resultsPerPage: 10,
 };
 
 const STORAGE_KEY = "lenrose.layout";

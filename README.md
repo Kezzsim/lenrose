@@ -80,10 +80,17 @@ All services share a single, consistent API key across the stack
   selected keys and upserts flattened metadata documents. Each document stores
   `uuid`, `collection` (source container path, faceted by default), and
   `tiled_key` (`{collection}/{uuid}`) for retrieving the full record from Tiled.
-- **Server** (FastAPI + Starlette): search proxy, record retrieval from Tiled,
-  and a webhook receiver for live ingestion of new records.
-- **Web** (React + TypeScript + Vite + MUI): search bar, facets, results,
-  and record detail, following NSLS-II / BNL branding.
+- **Server** (FastAPI + Starlette): serves search configuration (public
+  Typesense endpoint + scoped search-only key + the public Tiled API URL) and a
+  webhook receiver for live ingestion. It does **not** proxy searches or data.
+- **Web** (React + TypeScript + Vite + MUI): search bar, facets, and results.
+  Each result lazily loads its data **directly from Tiled** in the browser
+  (`src/tiled/`, adapting viewers from bluesky/tiled's web-frontend), previews it
+  in the card, and shows a larger interactive viewer in the flyout. A "Streams"
+  facet, populated from the Tiled containers of loaded records, selects which
+  stream to preview. When Tiled cannot be reached the indexed Typesense fields
+  are shown with a warning. For security the browser authenticates to Tiled only
+  anonymously or with a user-supplied API key. Follows NSLS-II / BNL branding.
 - **State** (SQLite): tracks connections, selected containers, key specs, and
   index state so the app can resume without re-indexing.
 
@@ -97,4 +104,6 @@ All services share a single, consistent API key across the stack
 | `TYPESENSE_API_KEY` | `secret` | Typesense admin API key |
 | `LENROSE_DB_PATH` | `state.db` (repo root) | SQLite app state |
 | `TILED_API_KEY` | `secret` | Tiled API key (matches the dev stack) |
+| `LENROSE_TILED_URI` | _unset_ | Server-internal Tiled URI (used for ingest) |
+| `LENROSE_TILED_PUBLIC_URI` | `LENROSE_TILED_URI` | Public Tiled URI the browser uses to load data directly; its `/api/v1` base is sent to the frontend. Tiled must allow the frontend origin via CORS (`server.allow_origins`). |
 | `TILED_WEBHOOK_SECRET` | _unset_ | HMAC secret for webhook verification |

@@ -212,8 +212,19 @@ def import_documents(
 
 
 def _as_str(value) -> str | None:
+    """Normalise a value to a plain string.
+
+    Tiled exposes ``structure_family`` as a ``StructureFamily`` enum whose
+    ``str()`` is ``"StructureFamily.container"`` while its ``.value`` is the
+    canonical ``"container"``. Prefer the enum ``.value`` so Typesense stores the
+    clean family name (fakes/tests may pass a plain string, handled by the
+    fallback).
+    """
     if value is None:
         return None
+    enum_value = getattr(value, "value", None)
+    if isinstance(enum_value, str):
+        return enum_value
     return str(value)
 
 

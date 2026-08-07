@@ -2,9 +2,10 @@
 //
 // Per the Lenrose ideals the web app manages its own state and talks directly
 // to services. Typesense is reached with the scoped, search-only key the server
-// provides, so no Typesense credentials are stored here. Users may, however,
-// supply their own Tiled authentication (anonymous, API key, or
-// username/password) which is forwarded to the server when loading records.
+// provides, so no Typesense credentials are stored here. For Tiled, the browser
+// talks *directly* to the Tiled HTTP API, so for security we only support
+// anonymous access or a user-supplied API key (no password/token flow in the
+// browser). Users who need authenticated data mint their own Tiled API key.
 // Values are persisted in IndexedDB (not localStorage) so they are not
 // trivially exposed and survive reloads.
 
@@ -14,17 +15,19 @@ const DB_NAME = "lenrose";
 const STORE = "credentials";
 const DB_VERSION = 1;
 
-export type TiledAuthMethod =
-  | "preconfigured"
-  | "anonymous"
-  | "api_key"
-  | "password";
+// "preconfigured" is a label-only mode: it means "use whatever the Tiled server
+// allows anonymously". No secret is ever shipped to the browser for it.
+export type TiledAuthMethod = "preconfigured" | "anonymous" | "api_key";
 
 export interface Credentials {
   tiledAuthMethod?: TiledAuthMethod;
   tiledApiKey?: string;
-  tiledUsername?: string;
-  tiledPassword?: string;
+  /**
+   * Optional user override for the Tiled server URL. When set, the browser
+   * talks to this Tiled instead of the one the server reports (env /
+   * TUI-saved connection). Highest precedence.
+   */
+  tiledApiUrl?: string;
 }
 
 let dbPromise: Promise<IDBPDatabase> | null = null;

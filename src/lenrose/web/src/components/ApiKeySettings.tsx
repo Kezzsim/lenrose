@@ -1,7 +1,8 @@
 // Dialog for managing user-supplied Tiled authentication. Values are persisted
-// to IndexedDB and forwarded to the server when loading full record metadata.
-// Typesense is reached with the server's scoped search-only key, so no
-// Typesense credentials are managed here.
+// to IndexedDB and used by the browser to talk *directly* to the Tiled HTTP API.
+// For security only anonymous access and a user-supplied API key are supported
+// (no password/token flow in the browser). Typesense is reached with the
+// server's scoped search-only key, so no Typesense credentials are managed here.
 
 import { useEffect, useState } from "react";
 import {
@@ -17,12 +18,6 @@ import {
 } from "@mui/material";
 import { useSettings } from "../state/settings";
 import type { Credentials, TiledAuthMethod } from "../state/credentials";
-
-const METHOD_LABELS: Record<string, string> = {
-  anonymous: "Anonymous",
-  api_key: "API Key",
-  password: "Username / Password",
-};
 
 export function ApiKeySettingsDialog({
   open,
@@ -40,23 +35,18 @@ export function ApiKeySettingsDialog({
     if (open) setForm(credentials);
   }, [open, credentials]);
 
-  // Absence of an explicit method means "use the server's preconfigured
-  // connection". Reserve "anonymous" for Tiled's own anonymous auth.
+  // Absence of an explicit method means "use whatever the Tiled server allows
+  // anonymously" (labelled Preconfigured). No secret is shipped for it.
   const method: TiledAuthMethod = form.tiledAuthMethod ?? "preconfigured";
 
-  // Label the preconfigured option with the server's actual method, when known.
-  const serverMethod = config?.tiled?.method;
-  const preconfiguredLabel = serverMethod
-    ? `Preconfigured (${METHOD_LABELS[serverMethod] ?? serverMethod})`
-    : config?.tiled?.configured
-    ? "Preconfigured"
-    : "Preconfigured (none)";
+  const preconfiguredLabel = config?.tiled?.configured
+    ? "Default (anonymous access)"
+    : "Default (Tiled not configured)";
 
   const authOptions: { value: TiledAuthMethod; label: string }[] = [
     { value: "preconfigured", label: preconfiguredLabel },
     { value: "anonymous", label: "Anonymous" },
     { value: "api_key", label: "API Key" },
-    { value: "password", label: "Username / Password" },
   ];
 
   const set = (key: keyof Credentials, value: string) =>
@@ -64,14 +54,12 @@ export function ApiKeySettingsDialog({
 
   const handleSave = async () => {
     // Persist only fields relevant to the chosen auth method. "Preconfigured"
-    // stores nothing so the server uses its own connection.
+    // stores nothing so the browser accesses Tiled anonymously. The optional
+    // Tiled URL override is preserved across auth methods.
     const next: Credentials =
       method === "preconfigured" ? {} : { tiledAuthMethod: method };
     if (method === "api_key") next.tiledApiKey = form.tiledApiKey;
-    if (method === "password") {
-      next.tiledUsername = form.tiledUsername;
-      next.tiledPassword = form.tiledPassword;
-    }
+    if (form.tiledApiUrl?.trim()) next.tiledApiUrl = form.tiledApiUrl.trim();
     await updateCredentials(next);
     onClose();
   };
@@ -86,13 +74,29 @@ export function ApiKeySettingsDialog({
       <DialogTitle>Tiled Authentication</DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
-          Choose how to authenticate against Tiled when loading full record
-          metadata. "Preconfigured" uses the server's own connection. Choose
-          "Anonymous" to explicitly use Tiled's anonymous access. Values are
-          stored locally in your browser (IndexedDB).
+          Point the app at the Tiled server holding your data and choose how your
+          browser authenticates against it. Leave the URL blank to use the
+          server the data was ingested from. For security only anonymous access
+          and an API key you supply are available — mint your own Tiled API key
+          to view protected data. Values are stored locally in your browser
+          (IndexedDB).
         </DialogContentText>
 
         <Stack spacing={2}>
+          <TextField
+            size="small"
+            label="Tiled server URL (override)"
+            placeholder={config?.tiled?.apiUrl ?? "https://tiled.example.com"}
+            helperText={
+              config?.tiled?.apiUrl
+                ? `Leave blank to use the configured server: ${config.tiled.apiUrl}`
+                : "URL of the Tiled server holding this data (e.g. https://tiled-demo.nsls2.bnl.gov)"
+            }
+            value={form.tiledApiUrl ?? ""}
+            onChange={(e) => set("tiledApiUrl", e.target.value)}
+            fullWidth
+          />
+
           <TextField
             select
             size="small"
@@ -117,26 +121,6 @@ export function ApiKeySettingsDialog({
               onChange={(e) => set("tiledApiKey", e.target.value)}
               fullWidth
             />
-          )}
-
-          {method === "password" && (
-            <>
-              <TextField
-                size="small"
-                label="Username"
-                value={form.tiledUsername ?? ""}
-                onChange={(e) => set("tiledUsername", e.target.value)}
-                fullWidth
-              />
-              <TextField
-                size="small"
-                label="Password"
-                type="password"
-                value={form.tiledPassword ?? ""}
-                onChange={(e) => set("tiledPassword", e.target.value)}
-                fullWidth
-              />
-            </>
           )}
         </Stack>
       </DialogContent>

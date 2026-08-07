@@ -2,6 +2,7 @@ import { Box, Button, Stack, Typography } from "@mui/material";
 import { useClearRefinements } from "react-instantsearch";
 import { RangeFacet } from "./RangeFacet";
 import { RefinementFacet } from "./RefinementFacet";
+import { StreamFacet } from "./StreamFacet";
 
 const NUMERIC_TYPES = new Set([
   "int32",
@@ -44,6 +45,7 @@ export function Facets({
   return (
     <Stack spacing={2}>
       <ClearAll />
+      <StreamFacet />
       {ordered.map((field) => {
         const type = facetTypes[field];
         if (isNumericType(type)) {
