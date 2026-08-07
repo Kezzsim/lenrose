@@ -1,4 +1,5 @@
-import { Stack } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
+import { useClearRefinements } from "react-instantsearch";
 import { RangeFacet } from "./RangeFacet";
 import { RefinementFacet } from "./RefinementFacet";
 
@@ -12,6 +13,18 @@ const NUMERIC_TYPES = new Set([
 
 export function isNumericType(type: string | undefined): boolean {
   return type != null && NUMERIC_TYPES.has(type);
+}
+
+function ClearAll() {
+  const { canRefine, refine } = useClearRefinements();
+  return (
+    <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Typography variant="subtitle2">Filters</Typography>
+      <Button size="small" onClick={refine} disabled={!canRefine}>
+        Clear all
+      </Button>
+    </Box>
+  );
 }
 
 // Renders the configured facets. Numeric fields (int/float) become range
@@ -30,6 +43,7 @@ export function Facets({
 
   return (
     <Stack spacing={2}>
+      <ClearAll />
       {ordered.map((field) => {
         const type = facetTypes[field];
         if (isNumericType(type)) {

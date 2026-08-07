@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Slider,
@@ -38,6 +39,10 @@ export function RangeFacet({
 }) {
   const { start, range, canRefine, refine } = useRange({ attribute });
   const integer = INTEGER_TYPES.has(type);
+
+  const isRefined =
+    (Number.isFinite(start[0]) && start[0] !== -Infinity) ||
+    (Number.isFinite(start[1]) && start[1] !== Infinity);
 
   const min = range.min ?? 0;
   const max = range.max ?? 0;
@@ -103,9 +108,25 @@ export function RangeFacet({
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="subtitle2" gutterBottom>
-          {title}
-        </Typography>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          gap={1}
+        >
+          <Typography variant="subtitle2" gutterBottom>
+            {title}
+          </Typography>
+          {isRefined && (
+            <Button
+              size="small"
+              onClick={() => refine([undefined, undefined])}
+              sx={{ minWidth: 0 }}
+            >
+              Clear
+            </Button>
+          )}
+        </Box>
         <Box px={1}>
           <Slider
             size="small"
