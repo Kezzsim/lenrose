@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from lenrose.server.frontend import WEB_DIST as _WEB_DIST
 from lenrose.server.routes import records, search, webhooks
-
-_WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 def create_app() -> FastAPI:

@@ -24,6 +24,10 @@ class LenroseApp(App):
     def __init__(self) -> None:
         super().__init__()
         self.ctx = IngestContext()
+        # Set True only when the user completes the index build and presses
+        # "Done". Quitting early (``q``) leaves this False so the unified
+        # launcher knows not to start the server.
+        self.setup_completed = False
 
     def on_mount(self) -> None:
         self.push_screen(TypesenseConfigScreen())
@@ -54,8 +58,11 @@ class LenroseApp(App):
         self.push_screen(IndexProgressScreen())
 
 
-def run() -> None:
-    LenroseApp().run()
+def run() -> bool:
+    """Run the setup TUI. Return True if setup completed successfully."""
+    app = LenroseApp()
+    app.run()
+    return app.setup_completed
 
 
 if __name__ == "__main__":

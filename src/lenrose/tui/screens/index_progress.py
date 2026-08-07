@@ -105,4 +105,9 @@ class IndexProgressScreen(Screen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "done":
+            # The "Done" button is also enabled on failure paths (which wipe
+            # state). Only mark setup complete if an IndexState was actually
+            # recorded, so the unified launcher won't start the server after a
+            # failed build.
+            self.app.setup_completed = db.is_setup_complete()
             self.app.exit()

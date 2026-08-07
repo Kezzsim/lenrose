@@ -6,6 +6,12 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64"]
 
 [tasks]
+# Primary entry point: one command that brings up the backing services and
+# launches Lenrose (setup TUI on first run, then the server serving the web UI
+# at / and the API at /api). This is what most users should run.
+start = { cmd = "lenrose", depends-on = ["services-up"] }
+
+# --- Component tasks (development / running pieces in isolation) ------------
 tui = "python -m lenrose.tui.app"
 serve = "uvicorn lenrose.server.app:app --reload --host 0.0.0.0 --port 8001"
 test = "pytest -v"

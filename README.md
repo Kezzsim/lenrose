@@ -8,16 +8,55 @@ and serves a recomposable React search interface backed by FastAPI.
 
 ## Quick start
 
+Lenrose runs as a single command. Bring up the backing services and launch it:
+
 ```sh
-# 1. Bring up Typesense
-pixi run typesense-up
-
-# 2. Ingest metadata interactively
-pixi run tui
-
-# 3. Serve the search web app
-pixi run serve
+# Start Typesense + Tiled, then launch Lenrose (setup TUI on first run,
+# then the server). This is the one command most users need.
+pixi run start
 ```
+
+`pixi run start` runs the `lenrose` command after ensuring the local Typesense
+and Tiled containers are up. On first launch it opens the interactive setup TUI
+to ingest metadata; once setup finishes it builds the web frontend (if not
+already built) and starts the server. On subsequent launches it detects the
+existing configuration and goes straight to serving.
+
+Open the search UI at <http://localhost:8001/> (the API lives under `/api`).
+
+### The `lenrose` command
+
+If the services are already running (or you point at a remote stack via
+environment variables), you can invoke Lenrose directly:
+
+```sh
+lenrose               # setup-if-needed, build frontend, then serve
+lenrose --reconfigure # re-run the setup TUI even if already configured
+lenrose --port 9000   # serve on a different port
+```
+
+Setup state is stored in SQLite, so Lenrose knows whether it needs to run the
+TUI or can start the server immediately. If you quit the setup TUI before it
+finishes, the server is not started.
+
+### Development tasks
+
+The following pixi tasks run individual components in isolation, mainly for
+development:
+
+```sh
+pixi run services-up   # start Typesense + Tiled only
+pixi run tui           # run the setup TUI only
+pixi run serve         # run the API/server only (uvicorn --reload, port 8001)
+pixi run build-web     # build the React frontend into src/lenrose/web/dist
+pixi run dev-web       # Vite dev server with hot reload (proxies /api -> 8001)
+pixi run dev           # services + Vite dev server
+pixi run test          # test suite
+```
+
+The `lenrose` command builds the frontend automatically on first run, so
+`build-web` is only needed for a standalone `pixi run serve` workflow or when
+iterating on the production build.
 
 ### Resetting local containers
 
@@ -56,6 +95,6 @@ All services share a single, consistent API key across the stack
 | `TYPESENSE_PORT` | `8108` | Typesense port |
 | `TYPESENSE_PROTOCOL` | `http` | `http` or `https` |
 | `TYPESENSE_API_KEY` | `secret` | Typesense admin API key |
-| `LENROSE_DB_PATH` | `~/.local/state/lenrose/state.db` | SQLite app state |
+| `LENROSE_DB_PATH` | `state.db` (repo root) | SQLite app state |
 | `TILED_API_KEY` | `secret` | Tiled API key (matches the dev stack) |
 | `TILED_WEBHOOK_SECRET` | _unset_ | HMAC secret for webhook verification |

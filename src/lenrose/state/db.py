@@ -36,6 +36,7 @@ __all__ = [
     "reset_state_db",
     "has_orphaned_state",
     "reconcile_orphaned_state",
+    "is_setup_complete",
     "save_connection",
     "load_last_connection",
 ]
@@ -225,3 +226,21 @@ def reconcile_orphaned_state() -> bool:
         reset_state_db()
         return True
     return False
+
+
+def is_setup_complete() -> bool:
+    """True if a Typesense collection was successfully built and recorded.
+
+    This is the canonical "has setup run before?" signal used by the unified
+    launcher to decide whether to run the setup TUI or go straight to serving.
+    A completed run leaves an :class:`IndexState` row with ``last_ingested``
+    set (see :func:`upsert_index_state`).
+    """
+    init_db()
+    with session_scope() as session:
+        return (
+            session.exec(
+                select(IndexState).where(IndexState.last_ingested.is_not(None))
+            ).first()
+            is not None
+        )
