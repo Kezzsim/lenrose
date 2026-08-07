@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from lenrose.config import get_settings
 from lenrose.indexer.ingest import make_doc_id, normalize_collection
 from lenrose.indexer.typesense_client import get_client
-from lenrose.server.tiled_session import get_tiled_client
+from lenrose.server.tiled_session import client_from_credentials
 
 router = APIRouter(prefix="/api", tags=["records"])
 
 
 @router.get("/records/{uuid}")
-def get_record(uuid: str, collection: str | None = Query(None)):
+def get_record(
+    uuid: str,
+    collection: str | None = Query(None),
+    x_tiled_auth_method: str | None = Header(None),
+    x_tiled_api_key: str | None = Header(None),
+    x_tiled_username: str | None = Header(None),
+    x_tiled_password: str | None = Header(None),
+):
     """Load a record's full metadata from Tiled.
 
     Disambiguates same-UUID collisions across containers using ``collection``.
@@ -41,7 +48,12 @@ def get_record(uuid: str, collection: str | None = Query(None)):
         tiled_key = doc.get("tiled_key") or make_doc_id(doc["collection"], uuid)
         col = doc["collection"]
 
-    client = get_tiled_client()
+    client = client_from_credentials(
+        x_tiled_auth_method,
+        api_key=x_tiled_api_key,
+        username=x_tiled_username,
+        password=x_tiled_password,
+    )
     if client is None:
         raise HTTPException(
             status_code=503,

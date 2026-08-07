@@ -6,10 +6,9 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useHits } from "react-instantsearch";
 import type { SearchHitDocument } from "../api/client";
 
-// structure_family values that can be rendered graphically (Tiled web-frontend
-// style viewers). Stored in the index so we can flag viewable records.
 const VIEWABLE = new Set(["array", "table", "dataframe", "image"]);
 
 function formatDisplayValue(value: unknown): string | null {
@@ -30,26 +29,27 @@ function formatDisplayValue(value: unknown): string | null {
 }
 
 export function ResultList({
-  hits,
   onSelect,
   displayField,
 }: {
-  hits: { document: SearchHitDocument }[];
   onSelect: (doc: SearchHitDocument) => void;
   displayField: string;
 }) {
-  if (!hits.length) {
+  const { items } = useHits<SearchHitDocument>();
+
+  if (!items.length) {
     return <Typography color="text.secondary">No results.</Typography>;
   }
+
   return (
     <Stack spacing={1}>
-      {hits.map(({ document }) => {
+      {items.map((document) => {
         const viewable =
-          document.structure_family &&
-          VIEWABLE.has(document.structure_family);
-        const title = formatDisplayValue(document[displayField]) ?? document.uuid;
+          document.structure_family && VIEWABLE.has(document.structure_family);
+        const title =
+          formatDisplayValue(document[displayField]) ?? document.uuid;
         return (
-          <Card key={document.id} variant="outlined">
+          <Card key={document.objectID ?? document.id} variant="outlined">
             <CardActionArea onClick={() => onSelect(document)}>
               <CardContent>
                 <Stack

@@ -34,7 +34,15 @@ class Settings(BaseSettings):
     typesense_host: str = "localhost"
     typesense_port: int = 8108
     typesense_protocol: str = "http"
+    # Public-facing Typesense endpoint the browser connects to directly (via the
+    # InstantSearch adapter). Defaults to the server-side values when unset.
+    typesense_public_host: str | None = None
+    typesense_public_port: int | None = None
+    typesense_public_protocol: str | None = None
     typesense_api_key: str = "secret"
+    # Optional explicit search-only key handed to the browser. When unset, the
+    # server mints a scoped search-only key from the admin key at runtime.
+    typesense_search_only_key: str | None = None
 
     # Application state
     lenrose_db_path: Path = _default_db_path()
@@ -62,6 +70,15 @@ class Settings(BaseSettings):
 
     def ensure_db_dir(self) -> None:
         self.lenrose_db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def typesense_public_node(self) -> dict:
+        """Connection details the browser uses to reach Typesense directly."""
+        return {
+            "host": self.typesense_public_host or self.typesense_host,
+            "port": self.typesense_public_port or self.typesense_port,
+            "protocol": self.typesense_public_protocol or self.typesense_protocol,
+        }
 
 
 _settings: Settings | None = None

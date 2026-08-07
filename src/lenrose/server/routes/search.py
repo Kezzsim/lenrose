@@ -1,11 +1,19 @@
-"""Search routes: proxy Typesense searches and expose facet configuration."""
+"""Search configuration route.
+
+The frontend talks to Typesense directly via the InstantSearch adapter, so the
+server no longer proxies searches. This module exposes the configuration the
+browser needs to bootstrap the adapter: the public Typesense endpoint, a scoped
+search-only API key, the collection name, the fields to query, and the facet /
+display field metadata derived from the persisted key specs.
+"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from lenrose.config import get_settings
-from lenrose.indexer.typesense_client import get_client
+from lenrose.indexer.search_key import get_scoped_search_key
+from lenrose.server.tiled_session import server_tiled_summary
 from lenrose.state import db
 
 router = APIRouter(prefix="/api", tags=["search"])
@@ -19,7 +27,6 @@ def _field_name_map(specs) -> dict[str, str]:
 
 def _facet_type_map(specs) -> dict[str, str]:
     names = _field_name_map(specs)
-
     return {
         names[s.dotted_key]: s.datatype
         for s in specs
@@ -27,104 +34,79 @@ def _facet_type_map(specs) -> dict[str, str]:
     }
 
 
-def _display_field_option(specs) -> dict[str, str] | None:
+def _facet_fields(specs) -> list[str]:
     names = _field_name_map(specs)
+    fields = [
+        names[s.dotted_key]
+        for s in specs
+        if s.is_facet and not s.is_display and s.dotted_key in names
+    ]
+    fields = list(dict.fromkeys(fields))
+    if "collection" not in fields:
+        fields.insert(0, "collection")
+    return fields
+
+
+def _query_by(specs) -> list[str]:
+    names = _field_name_map(specs)
+    searchable = [
+        names[s.dotted_key]
+        for s in specs
+        if s.dotted_key in names
+        and s.is_searchable
+        and s.is_index
+        and s.datatype.startswith("string")
+    ]
+    fields = list(dict.fromkeys(searchable))
+    return fields or ["collection"]
+
+
+def _display_fields(specs) -> tuple[list[dict], str]:
+    names = _field_name_map(specs)
+    options = [{"value": "uuid", "label": "UUID", "field": "uuid"}]
+    default = "uuid"
     for spec in specs:
         if not spec.selected or not spec.is_display or spec.is_system:
             continue
         field = names.get(spec.dotted_key)
         if field:
-            return {"value": spec.dotted_key, "label": spec.dotted_key, "field": field}
-    return None
+            options.append(
+                {"value": spec.dotted_key, "label": spec.dotted_key, "field": field}
+            )
+            default = spec.dotted_key
+            break
+    return options, default
 
 
-def _normalize_bool_filters(filter_by: str | None) -> str | None:
-    """Accept stale UI bool filters that quote true/false as strings."""
-    if not filter_by:
-        return filter_by
-
-    for field, datatype in _facet_type_map(db.load_key_specs()).items():
-        if datatype != "bool":
-            continue
-        filter_by = filter_by.replace(f"{field}:=[`true`]", f"{field}:=true")
-        filter_by = filter_by.replace(f"{field}:=[`false`]", f"{field}:=false")
-        filter_by = filter_by.replace(f"{field}:=`true`", f"{field}:=true")
-        filter_by = filter_by.replace(f"{field}:=`false`", f"{field}:=false")
-    return filter_by
-
-
-@router.get("/search")
-def search(
-    q: str = Query("*", description="Query string"),
-    query_by: str | None = Query(None, description="Comma-separated fields"),
-    facet_by: str | None = Query(None),
-    filter_by: str | None = Query(None),
-    include_fields: str | None = Query(None),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=250),
-):
-    """Proxy a search against the Typesense index."""
+@router.get("/search-config")
+def search_config():
+    """Return everything the browser needs to configure InstantSearch."""
     settings = get_settings()
-    client = get_client(settings)
-
-    if not query_by:
-        # default to searchable string fields recorded in state
-        specs = db.load_key_specs()
-
-        names = _field_name_map(specs)
-        searchable = [
-            names[s.dotted_key]
-            for s in specs
-            if s.dotted_key in names
-            and s.is_searchable
-            and s.is_index
-            and s.datatype.startswith("string")
-        ]
-        query_by = ",".join(dict.fromkeys(searchable)) if searchable else "collection"
-
-    params = {
-        "q": q,
-        "query_by": query_by,
-        "page": page,
-        "per_page": per_page,
-    }
-    if facet_by:
-        params["facet_by"] = facet_by
-    if filter_by:
-        params["filter_by"] = _normalize_bool_filters(filter_by)
-    if include_fields:
-        params["include_fields"] = include_fields
-
-    try:
-        result = client.collections[settings.lenrose_index_name].documents.search(params)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Search failed: {exc}") from exc
-    return result
-
-
-@router.get("/facets")
-def facets():
-    """Return the default facet fields (collection is always included)."""
     specs = db.load_key_specs()
 
-    names = _field_name_map(specs)
+    try:
+        api_key = get_scoped_search_key(settings)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502, detail=f"Could not mint search key: {exc}"
+        ) from exc
+
+    node = settings.typesense_public_node
     facet_types = _facet_type_map(specs)
-    facet_fields = [
-        names[s.dotted_key]
-        for s in specs
-        if s.is_facet and not s.is_display and s.dotted_key in names
-    ]
-    facet_fields = list(dict.fromkeys(facet_fields))
-    if "collection" not in facet_fields:
-        facet_fields.insert(0, "collection")
-    return {"facets": facet_fields, "facet_types": facet_types}
+    display_fields, default_display = _display_fields(specs)
 
-
-@router.get("/display-fields")
-def display_fields():
-    """Return fields the UI may use as the primary result-list label."""
-    display_option = _display_field_option(db.load_key_specs())
-    options = [{"value": "uuid", "label": "UUID", "field": "uuid"}]
-    if display_option:
-        options.append(display_option)
-    return {"default": display_option["value"] if display_option else "uuid", "options": options}
+    return {
+        "typesense": {
+            "host": node["host"],
+            "port": node["port"],
+            "protocol": node["protocol"],
+            "apiKey": api_key,
+        },
+        "collection": settings.lenrose_index_name,
+        "queryBy": _query_by(specs),
+        "facets": _facet_fields(specs),
+        "facetTypes": facet_types,
+        "displayFields": display_fields,
+        "defaultDisplay": default_display,
+        "tiled": server_tiled_summary(),
+    }

@@ -9,12 +9,15 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { getRecord, type RecordDetail, type SearchHitDocument } from "../api/client";
+import type { Credentials } from "../state/credentials";
 
 export function RecordDetailDrawer({
   doc,
+  tiledCredentials,
   onClose,
 }: {
   doc: SearchHitDocument | null;
+  tiledCredentials?: Credentials;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<RecordDetail | null>(null);
@@ -26,11 +29,20 @@ export function RecordDetailDrawer({
     setLoading(true);
     setError(null);
     setDetail(null);
-    getRecord(doc.uuid, doc.collection)
+    getRecord(doc.uuid, doc.collection, {
+      method:
+        tiledCredentials?.tiledAuthMethod &&
+        tiledCredentials.tiledAuthMethod !== "preconfigured"
+          ? tiledCredentials.tiledAuthMethod
+          : undefined,
+      apiKey: tiledCredentials?.tiledApiKey,
+      username: tiledCredentials?.tiledUsername,
+      password: tiledCredentials?.tiledPassword,
+    })
       .then(setDetail)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [doc]);
+  }, [doc, tiledCredentials]);
 
   return (
     <Drawer anchor="right" open={!!doc} onClose={onClose}>

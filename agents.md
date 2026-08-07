@@ -18,3 +18,9 @@
 - fixtures for setting up a typesense connection
 - Github Actions that set up a typesense container and route requests there
 - pytest-vcr to play back canned http responses
+
+## For further conscideration
+
+- Prefer the client side app talk directly to services (e.g. Tiled, Typesense via instantSearch adapter)
+- Minimize functions that the lenrose server is performing, mainly have the web app manage it's own state
+- Utilize indexdb e.g. to store state information securely in frontend

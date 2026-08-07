@@ -1,16 +1,26 @@
-"""Tests for result-list display field configuration."""
+"""Tests for the consolidated search configuration endpoint."""
 
 from lenrose.server.routes import search
 from lenrose.state.models import KeySpec
 
 
-def test_display_fields_defaults_to_uuid(monkeypatch):
-    monkeypatch.setattr(search.db, "load_key_specs", lambda: [])
+def _patch_specs(monkeypatch, specs):
+    monkeypatch.setattr(search.db, "load_key_specs", lambda: specs)
 
-    assert search.display_fields() == {
-        "default": "uuid",
-        "options": [{"value": "uuid", "label": "UUID", "field": "uuid"}],
-    }
+
+def _patch_key(monkeypatch):
+    monkeypatch.setattr(
+        "lenrose.server.routes.search.get_scoped_search_key",
+        lambda settings=None: "scoped-key",
+    )
+
+
+def test_display_fields_default_to_uuid(monkeypatch):
+    _patch_specs(monkeypatch, [])
+
+    options, default = search._display_fields([])
+    assert default == "uuid"
+    assert options == [{"value": "uuid", "label": "UUID", "field": "uuid"}]
 
 
 def test_display_fields_exposes_selected_key(monkeypatch):
@@ -18,29 +28,20 @@ def test_display_fields_exposes_selected_key(monkeypatch):
         KeySpec(dotted_key="start.plan_name", datatype="string", is_display=True),
         KeySpec(dotted_key="sample.name", datatype="string"),
     ]
-    monkeypatch.setattr(search.db, "load_key_specs", lambda: specs)
-
-    assert search.display_fields() == {
-        "default": "start.plan_name",
-        "options": [
-            {"value": "uuid", "label": "UUID", "field": "uuid"},
-            {
-                "value": "start.plan_name",
-                "label": "start.plan_name",
-                "field": "plan_name",
-            },
-        ],
-    }
+    options, default = search._display_fields(specs)
+    assert default == "start.plan_name"
+    assert options == [
+        {"value": "uuid", "label": "UUID", "field": "uuid"},
+        {"value": "start.plan_name", "label": "start.plan_name", "field": "plan_name"},
+    ]
 
 
-def test_display_fields_uses_scoped_name_for_collisions(monkeypatch):
+def test_display_fields_scoped_name_for_collisions():
     specs = [
         KeySpec(dotted_key="sample.name", datatype="string", is_display=True),
         KeySpec(dotted_key="instrument.name", datatype="string"),
     ]
-    monkeypatch.setattr(search.db, "load_key_specs", lambda: specs)
-
-    options = search.display_fields()["options"]
+    options, _ = search._display_fields(specs)
     assert options[1] == {
         "value": "sample.name",
         "label": "sample.name",
@@ -48,7 +49,7 @@ def test_display_fields_uses_scoped_name_for_collisions(monkeypatch):
     }
 
 
-def test_display_field_is_not_returned_as_facet(monkeypatch):
+def test_display_field_not_returned_as_facet():
     specs = [
         KeySpec(
             dotted_key="sample.name",
@@ -58,11 +59,33 @@ def test_display_field_is_not_returned_as_facet(monkeypatch):
         ),
         KeySpec(dotted_key="sample.type", datatype="string", is_facet=True),
     ]
-    monkeypatch.setattr(search.db, "load_key_specs", lambda: specs)
+    options, _ = search._display_fields(specs)
+    assert options[1] == {"value": "sample.name", "label": "sample.name", "field": "name"}
+    assert search._facet_fields(specs) == ["collection", "type"]
 
-    assert search.display_fields()["options"][1] == {
-        "value": "sample.name",
-        "label": "sample.name",
-        "field": "name",
-    }
-    assert search.facets()["facets"] == ["collection", "type"]
+
+def test_search_config_shape(monkeypatch):
+    specs = [
+        KeySpec(
+            dotted_key="start.plan_name",
+            datatype="string",
+            is_display=True,
+            is_searchable=True,
+            is_index=True,
+        ),
+        KeySpec(dotted_key="sample.temperature", datatype="float", is_facet=True),
+    ]
+    _patch_specs(monkeypatch, specs)
+    _patch_key(monkeypatch)
+
+    cfg = search.search_config()
+
+    assert cfg["typesense"]["apiKey"] == "scoped-key"
+    assert "host" in cfg["typesense"]
+    assert cfg["collection"]
+    assert "temperature" in cfg["facets"]
+    assert cfg["facetTypes"]["temperature"] == "float"
+    assert cfg["defaultDisplay"] == "start.plan_name"
+    assert "plan_name" in cfg["queryBy"]
+    assert "configured" in cfg["tiled"]
+    assert cfg["tiled"]["method"] in (None, "anonymous", "api_key")
